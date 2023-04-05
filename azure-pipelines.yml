@@ -1,0 +1,125 @@
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: Npm@1
+  displayName: 'npm custom'
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)'
+    verbose: false
+    customCommand: 'install --legacy-peer-deps'
+    customEndpoint: github
+
+- task: Npm@1
+  displayName: 'Prod Build - npm custom'
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)'
+    verbose: false
+    customCommand: 'run build'
+
+- task: Npm@1
+  displayName: 'Prod - Lint'
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)'
+    verbose: false
+    customCommand: 'run lint'
+
+- task: Npm@1
+  displayName: 'Prod Build - Unit Tests'
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)'
+    verbose: false
+    customCommand: 'run test-cicd'
+
+- task: PublishTestResults@2
+  displayName: 'Publish Test Results **/TEST*.xml'
+  inputs:
+    testResultsFiles: '**/TEST*.xml'
+    searchFolder: '$(Build.SourcesDirectory)'
+  condition: succeededOrFailed()
+
+- task: CopyFiles@2
+  displayName: 'Prod dist folder to ArtifactsStagingDir:'
+  inputs:
+    SourceFolder: dist/OneCloudAngular
+    TargetFolder: '$(build.artifactstagingdirectory)/prod'
+
+- task: Npm@1
+  displayName: 'Staging Build - npm custom '
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)'
+    verbose: false
+    customCommand: 'run build-staging'
+
+- task: CopyFiles@2
+  displayName: 'Staging dist folder to ArtifactsStagingDir:'
+  inputs:
+    SourceFolder: dist/OneCloudAngular
+    TargetFolder: '$(build.artifactstagingdirectory)/staging'
+
+- task: Npm@1
+  displayName: 'Dev Build - npm custom'
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)'
+    verbose: false
+    customCommand: 'run build-dev'
+
+- task: CopyFiles@2
+  displayName: 'Dev dist folder to ArtifactsStagingDir:'
+  inputs:
+    SourceFolder: dist/OneCloudAngular
+    TargetFolder: '$(build.artifactstagingdirectory)/dev'
+
+- task: Npm@1
+  displayName: 'QA Build - npm custom'
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)/OneCloudAngular'
+    verbose: false
+    customCommand: 'run build-qa'
+  enabled: false
+
+- task: CopyFiles@2
+  displayName: 'QA dist folder to ArtifactsStagingDir:'
+  inputs:
+    SourceFolder: OneCloudAngular/dist/OneCloudAngular
+    TargetFolder: '$(build.artifactstagingdirectory)/qa'
+  enabled: false
+
+- task: Npm@1
+  displayName: 'Demo Build - npm custom'
+  inputs:
+    command: custom
+    workingDir: '$(Build.SourcesDirectory)'
+    verbose: false
+    customCommand: 'run build-demo'
+
+- task: CopyFiles@2
+  displayName: 'Demo dist folder to ArtifactsStagingDir:'
+  inputs:
+    SourceFolder: dist/OneCloudAngular
+    TargetFolder: '$(build.artifactstagingdirectory)/demo'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: OneCloudPortalWebApp'
+  inputs:
+    ArtifactName: OneCloudPortalWebApp
+
+- task: Veracode.veracode-vsts-build-extension.veracode-scanner-task.Veracode@3
+  displayName: 'Upload and scan: $(Build.SourcesDirectory)/OneCloudAngular'
+  inputs:
+    AnalysisService: Veracode
+    veracodeAppProfile: OneCloud.Root
+    filepath: '$(Build.SourcesDirectory)/OneCloudAngular'
+    importResults: true
+    maximumWaitTime: 480
+  enabled: false
